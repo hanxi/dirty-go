@@ -28,30 +28,48 @@ func TestExample(t *testing.T) {
 
 	p.SetAge(3) // dirty 3
 
-	/*
-		users := NewWrapPhoneNumberUsers(pn)
-		users.Set(1, "hanxi1") // no dirty: because not set real root
-		pn.SetUsers(users)     // dirty4
+	persons := make([]*Person, 0)
+	p1 := NewPerson()
+	p1.SetName("p1")
+	persons = append(persons, p1)
 
-		users.Set(2, "hanxi2") // dirty5
+	p2 := NewPerson()
+	p2.SetName("p2")
+	persons = append(persons, p2)
 
-		friend1 := NewUser()
-		friend1.SetName("f1")
-		friends := NewWrapUserFriends(user)
-		friends.Set("f1", friend1)
-		user.SetFriends(friends) // dirty6
-		friend1.SetAge(11)       // dirty7
+	wpersons := NewWrapPersonFriendsFromSlice(persons)
+	p.SetFriends(wpersons) // dirty 4
 
-		friend2 := NewUser()
-		friend2.SetName("f2")
-		friends.Set("f2", friend2) // dirty8
+	p1.SetAge(1) // dirty 5
+	p2.SetAge(2) // dirty 6
 
-		sun := NewUser()
-		sun.SetName("sun")
-		user.SetSun(sun) // dirty9
-		sun.SetAge(9)    // dirty10
+	p3 := NewPerson()
+	p3.SetName("p3")
+	wpersons.Append(p3) // dirty 7
 
-		sun.SetSun(friend1) // dirty11
-		friend1.SetAge(10)  // dirty12
-	*/
+	p3.SetAge(3) // dirty 8
+
+	p4 := NewPerson()
+	p4.SetName("p4")
+	persons = append(persons, p2) // no dirty
+	// 这种情况没监听到修改影响不是很大，因为修改的临时数据，不是存储数据，
+	// 不需要重启服务器就可以很容易的测试出问题，表现就是操作后数据没变化。
+
+	peoples := make(map[string]*Person)
+	pp1 := NewPerson()
+	peoples["pp1"] = pp1
+
+	wpeoples := NewWrapPersonPeoplesFromMap(peoples)
+	p.SetPeoples(wpeoples) // dirty 9
+	pp1.SetAge(11)         // dirty 10
+
+	pp2 := NewPerson()
+	wpeoples.Set("pp2", pp2) // dirty 11
+	pp2.SetAge(22)           // dirty 12
+
+	pp3 := NewPerson()
+	peoples["pp3"] = pp3 // no dirty
+	pp3.SetAge(33)       // no dirty
+	// 这种情况没监听到修改影响不是很大，因为修改的临时数据，不是存储数据，
+	// 不需要重启服务器就可以很容易的测试出问题，表现就是操作后数据没变化。
 }

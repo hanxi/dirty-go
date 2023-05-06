@@ -12,7 +12,6 @@ type DataObject interface {
 type Base struct {
 	DataObject
 	observer Observer
-	parent   DataObject
 	root     DataObject
 	self     DataObject
 }

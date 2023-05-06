@@ -1,5 +1,6 @@
 package main
 
+/*
 func NewPerson() *Person {
 	p := &Person{}
 	p.self = p
@@ -135,3 +136,4 @@ func (p *User) GetScore() uint32 {
 	}
 	return p.score
 }
+*/
