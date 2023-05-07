@@ -1,4 +1,4 @@
-package main
+package dirty_out
 
 /*
 type Person struct {

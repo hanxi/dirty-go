@@ -1,4 +1,4 @@
-package main
+package dirty_out
 
 type Observer interface {
 	OnDirty(interface{})
@@ -21,7 +21,6 @@ func (x *Base) NotifyDirty() {
 		x.observer.OnDirty(x)
 	}
 	if x.root != nil && x.root != x.self {
-		// 非根节点往上传递消息
 		x.root.NotifyDirty()
 	}
 }

@@ -13,11 +13,13 @@ import (
 )
 
 func main() {
-	var filename string
-	flag.StringVar(&filename, "filename", "example.go", "The input struct file.")
+	var tmpl string
+	var out string
+	flag.StringVar(&tmpl, "tmpl", "", "The input template file.")
+	flag.StringVar(&out, "out", "", "The output file.")
 	flag.Parse()
 
-	src, err := ioutil.ReadFile(filename)
+	src, err := ioutil.ReadFile(tmpl)
 	if err != nil {
 		panic(err)
 	}
