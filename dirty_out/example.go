@@ -1,45 +1,109 @@
 package dirty_out
 
-/*
-type Person struct {
-	name    string
-	age     int
-	friends []*Person
-	peoples map[string]*Person
-}
-
-type User struct {
-	baseInfo *Person
-	score    uint32
-}
-*/
-
-// generate struct
 type Person struct {
 	Base
 	name          string
 	age           int
-	_wrap_friends *WrapPersonFriends
-	_wrap_peoples *WrapPersonPeoples
+	_wrap_friends *ArrPersonFriends
+	_wrap_peoples *MapPersonPeoples
 }
 
-type WrapPersonFriends struct {
+type ArrPersonFriends struct {
 	Base
 	friends []*Person
 }
 
-type WrapPersonPeoples struct {
+func NewArrPersonFriends() *ArrPersonFriends {
+	p := &ArrPersonFriends{}
+	p.friends = make([]*Person, 0)
+	p.self = p
+	p.root = p
+	return p
+}
+
+func NewArrPersonFriendsFromSlice(friends []*Person) *ArrPersonFriends {
+	p := &ArrPersonFriends{}
+	p.friends = make([]*Person, 0)
+	p.friends = append(p.friends, friends...)
+	p.self = p
+	p.root = p
+	return p
+}
+
+func (p *ArrPersonFriends) Append(value *Person) {
+	if p == nil {
+		return
+	}
+	p.friends = append(p.friends, value)
+	value.root = p.root
+	p.NotifyDirty()
+}
+
+func (p *ArrPersonFriends) Foreach(f func(*Person)) {
+	if p == nil {
+		return
+	}
+	for _, v := range p.friends {
+		f(v)
+	}
+}
+
+type MapPersonPeoples struct {
 	Base
 	peoples map[string]*Person
 }
 
-type User struct {
-	Base
-	baseInfo *Person
-	score    uint32
+func NewMapPersonPeoples() *MapPersonPeoples {
+	p := &MapPersonPeoples{}
+	p.peoples = make(map[string]*Person, 0)
+	p.self = p
+	p.root = p
+	return p
 }
 
-// generate func
+func NewMapPersonPeoplesFromMap(peoples map[string]*Person) *MapPersonPeoples {
+	p := &MapPersonPeoples{}
+	p.peoples = make(map[string]*Person)
+	for k, v := range peoples {
+		p.peoples[k] = v
+	}
+	p.self = p
+	p.root = p
+	return p
+}
+
+func (p *MapPersonPeoples) Get(key string) *Person {
+	if p == nil {
+		return nil
+	}
+	return p.peoples[key]
+}
+
+func (p *MapPersonPeoples) Set(key string, value *Person) {
+	if p == nil {
+		return
+	}
+	p.peoples[key] = value
+	value.root = p.root
+	p.NotifyDirty()
+}
+
+func (p *MapPersonPeoples) Delete(key string) {
+	if p == nil {
+		return
+	}
+	delete(p.peoples, key)
+	p.NotifyDirty()
+}
+
+func (p *MapPersonPeoples) Foreach(f func(string, *Person)) {
+	if p == nil {
+		return
+	}
+	for k, v := range p.peoples {
+		f(k, v)
+	}
+}
 
 func NewPerson() *Person {
 	p := &Person{}
@@ -78,7 +142,7 @@ func (p *Person) GetAge() int {
 	return p.age
 }
 
-func (p *Person) SetFriends(value *WrapPersonFriends) {
+func (p *Person) SetFriends(value *ArrPersonFriends) {
 	if p == nil {
 		return
 	}
@@ -90,49 +154,14 @@ func (p *Person) SetFriends(value *WrapPersonFriends) {
 	p.NotifyDirty()
 }
 
-func (p *Person) GetFriends() *WrapPersonFriends {
+func (p *Person) GetFriends() *ArrPersonFriends {
 	if p == nil {
 		return nil
 	}
 	return p._wrap_friends
 }
 
-func NewWrapPersonFriends() *WrapPersonFriends {
-	p := &WrapPersonFriends{}
-	p.friends = make([]*Person, 0)
-	p.self = p
-	p.root = p
-	return p
-}
-
-func NewWrapPersonFriendsFromSlice(friends []*Person) *WrapPersonFriends {
-	p := &WrapPersonFriends{}
-	p.friends = make([]*Person, 0)
-	p.friends = append(p.friends, friends...)
-	p.self = p
-	p.root = p
-	return p
-}
-
-func (p *WrapPersonFriends) Append(value *Person) {
-	if p == nil {
-		return
-	}
-	p.friends = append(p.friends, value)
-	value.root = p.root
-	p.NotifyDirty()
-}
-
-func (p *WrapPersonFriends) Foreach(f func(*Person)) {
-	if p == nil {
-		return
-	}
-	for _, v := range p.friends {
-		f(v)
-	}
-}
-
-func (p *Person) SetPeoples(value *WrapPersonPeoples) {
+func (p *Person) SetPeoples(value *MapPersonPeoples) {
 	if p == nil {
 		return
 	}
@@ -144,73 +173,27 @@ func (p *Person) SetPeoples(value *WrapPersonPeoples) {
 	p.NotifyDirty()
 }
 
-func (p *Person) GetPeoples() *WrapPersonPeoples {
+func (p *Person) GetPeoples() *MapPersonPeoples {
 	if p == nil {
 		return nil
 	}
 	return p._wrap_peoples
 }
 
-func NewWrapPersonPeoples() *WrapPersonPeoples {
-	p := &WrapPersonPeoples{}
-	p.peoples = make(map[string]*Person)
+type Man struct {
+	Base
+	baseInfo *Person
+	score    uint32
+}
+
+func NewMan() *Man {
+	p := &Man{}
 	p.self = p
 	p.root = p
 	return p
 }
 
-func NewWrapPersonPeoplesFromMap(peoples map[string]*Person) *WrapPersonPeoples {
-	p := &WrapPersonPeoples{}
-	p.peoples = make(map[string]*Person)
-	for k, v := range peoples {
-		p.peoples[k] = v
-	}
-	p.self = p
-	p.root = p
-	return p
-}
-
-func (p *WrapPersonPeoples) Get(key string) *Person {
-	if p == nil {
-		return nil
-	}
-	return p.peoples[key]
-}
-
-func (p *WrapPersonPeoples) Set(key string, value *Person) {
-	if p == nil {
-		return
-	}
-	p.peoples[key] = value
-	value.root = p.root
-	p.NotifyDirty()
-}
-
-func (p *WrapPersonPeoples) Delete(key string) {
-	if p == nil {
-		return
-	}
-	delete(p.peoples, key)
-	p.NotifyDirty()
-}
-
-func (p *WrapPersonPeoples) Foreach(f func(string, *Person)) {
-	if p == nil {
-		return
-	}
-	for k, v := range p.peoples {
-		f(k, v)
-	}
-}
-
-func NewUser() *User {
-	p := &User{}
-	p.self = p
-	p.root = p
-	return p
-}
-
-func (p *User) SetBaseInfo(value *Person) {
+func (p *Man) SetBaseInfo(value *Person) {
 	if p == nil {
 		return
 	}
@@ -219,14 +202,14 @@ func (p *User) SetBaseInfo(value *Person) {
 	p.NotifyDirty()
 }
 
-func (p *User) GetBaseInfo() *Person {
+func (p *Man) GetBaseInfo() *Person {
 	if p == nil {
 		return nil
 	}
 	return p.baseInfo
 }
 
-func (p *User) SetScore(value uint32) {
+func (p *Man) SetScore(value uint32) {
 	if p == nil {
 		return
 	}
@@ -234,7 +217,7 @@ func (p *User) SetScore(value uint32) {
 	p.NotifyDirty()
 }
 
-func (p *User) GetScore() uint32 {
+func (p *Man) GetScore() uint32 {
 	if p == nil {
 		return 0
 	}

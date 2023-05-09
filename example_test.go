@@ -19,14 +19,14 @@ func (c *Customer) OnDirty(i interface{}) {
 func TestExample(t *testing.T) {
 	observer := &Customer{}
 
-	user := dirty_out.NewUser()
-	user.Attach(observer)
-	user.SetScore(18) // dirty 1
+	man := dirty_out.NewMan()
+	man.Attach(observer)
+	man.SetScore(18) // dirty 1
 
 	p := dirty_out.NewPerson()
 	p.SetName("123") // no dirty
 
-	user.SetBaseInfo(p) // dirty 2
+	man.SetBaseInfo(p) // dirty 2
 
 	p.SetAge(3) // dirty 3
 
@@ -39,7 +39,7 @@ func TestExample(t *testing.T) {
 	p2.SetName("p2")
 	persons = append(persons, p2)
 
-	wpersons := dirty_out.NewWrapPersonFriendsFromSlice(persons)
+	wpersons := dirty_out.NewArrPersonFriendsFromSlice(persons)
 	p.SetFriends(wpersons) // dirty 4
 
 	p1.SetAge(1) // dirty 5
@@ -61,7 +61,7 @@ func TestExample(t *testing.T) {
 	pp1 := dirty_out.NewPerson()
 	peoples["pp1"] = pp1
 
-	wpeoples := dirty_out.NewWrapPersonPeoplesFromMap(peoples)
+	wpeoples := dirty_out.NewMapPersonPeoplesFromMap(peoples)
 	p.SetPeoples(wpeoples) // dirty 9
 	pp1.SetAge(11)         // dirty 10
 
