@@ -1,25 +1,25 @@
 package dirty_tmpl
 
 type BaseInfo struct {
-	lv  uint32
-	exp uint32
+	Lv  uint32 `json:"lv"`
+	Exp uint32 `json:"exp"`
 }
 
 type Resource struct {
-	id    uint32
-	value uint32
-	size  uint32
+	Id    uint32
+	Value uint32
+	Size  uint32
 }
 
 type Friend struct {
-	uid  uint32
-	name string
+	Uid  uint32
+	Name string
 }
 
 type User struct {
-	name      string
-	age       int
-	baseInfo  *BaseInfo
-	resources map[uint32]*Resource
-	friends   []*Friend
+	Name      string
+	Age       int
+	BaseInfo  *BaseInfo
+	Resources map[uint32]*Resource
+	Friends   []*Friend
 }

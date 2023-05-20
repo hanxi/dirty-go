@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"runtime/debug"
 	"testing"
 
@@ -141,4 +142,33 @@ func TestNotifyDirty(t *testing.T) {
 	ResetCount()
 	baseInfo.SetLv(1)
 	CheckCount(t, 1)
+}
+
+func TestUserJsonMarshal(t *testing.T) {
+	baseInfo := dirty_out.NewBaseInfo()
+	baseInfo.SetLv(10)
+	baseInfo.SetExp(100)
+	b, err := json.Marshal(baseInfo)
+	if err != nil {
+		t.Error("error: ", err)
+	}
+	t.Log(string(b))
+
+	if string(b) != `{"lv":10,"exp":100}` {
+		t.Error("json marshal failed.")
+	}
+}
+
+func TestUserJsonUnmarshal(t *testing.T) {
+	baseInfo := dirty_out.NewBaseInfo()
+	jsonStr := `{"lv":20,"exp":300}`
+	err := json.Unmarshal([]byte(jsonStr), &baseInfo)
+	if err != nil {
+		t.Error("error:", err)
+	}
+	t.Logf("lv:%d, exp:%d\n", baseInfo.GetLv(), baseInfo.GetExp())
+
+	if baseInfo.GetLv() != 20 || baseInfo.GetExp() != 300 {
+		t.Error("json unmarshal failed.")
+	}
 }
