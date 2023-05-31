@@ -6,20 +6,20 @@ type BaseInfo struct {
 }
 
 type Resource struct {
-	Id    uint32
-	Value uint32
-	Size  uint32
+	Id    uint32 `json:"id"`
+	Value uint32 `json:"value"`
+	Size  uint32 `json:"size"`
 }
 
 type Friend struct {
-	Uid  uint32
-	Name string
+	Uid  uint32 `json:"uid"`
+	Name string `json:"name"`
 }
 
 type User struct {
-	Name      string
-	Age       int
-	BaseInfo  *BaseInfo
-	Resources map[uint32]*Resource
-	Friends   []*Friend
+	Name      string               `json:"name"`
+	Age       int                  `json:"age"`
+	Info      *BaseInfo            `json:"baseinfo"`
+	Resources map[uint32]*Resource `json:resources`
+	Friends   []*Friend            `json:friends`
 }

@@ -14,6 +14,22 @@ import (
 	"strings"
 )
 
+// 字符串首字母大写
+func firstUpper(s string) string {
+	if s == "" {
+		return ""
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// 字符串首字母小写
+func firstLower(s string) string {
+	if s == "" {
+		return ""
+	}
+	return strings.ToLower(s[:1]) + s[1:]
+}
+
 func genNewFunc(name string) string {
 	newFuncTmpl := `func New%s() *%s {
 	p := &%s{}
@@ -26,14 +42,18 @@ func genNewFunc(name string) string {
 	return fmt.Sprintf(newFuncTmpl, name, name, name)
 }
 
-func genWrapArr(name, fieldName, fieldType, arrEltType string) string {
+func genWrapArr(name, fieldName, fieldType string, fset *token.FileSet, arrEltType ast.Expr, inPackageName string) string {
+	lowerFieldName := firstLower(fieldName)
+	arrEltTypeStr := getTypeString(fset, arrEltType)
+	arrEltStarTypeStr := getStarTypeString(fset, arrEltType)
+
 	structTmpl := `type %s struct {
 	Base
 	%s %s
 }
 
 `
-	structStr := fmt.Sprintf(structTmpl, name, fieldName, fieldType)
+	structStr := fmt.Sprintf(structTmpl, name, lowerFieldName, fieldType)
 
 	newFuncTmpl := `func New%s() *%s {
 	p := &%s{}
@@ -44,7 +64,7 @@ func genWrapArr(name, fieldName, fieldType, arrEltType string) string {
 }
 
 `
-	newFuncStr := fmt.Sprintf(newFuncTmpl, name, name, name, fieldName, fieldType)
+	newFuncStr := fmt.Sprintf(newFuncTmpl, name, name, name, lowerFieldName, fieldType)
 
 	newFuncFromSliceTmpl := `func New%sFromSlice(%s %s) *%s {
 	p := &%s{}
@@ -56,7 +76,7 @@ func genWrapArr(name, fieldName, fieldType, arrEltType string) string {
 }
 
 `
-	newFuncFromSliceStr := fmt.Sprintf(newFuncFromSliceTmpl, name, fieldName, fieldType, name, name, fieldName, fieldType, fieldName, fieldName, fieldName)
+	newFuncFromSliceStr := fmt.Sprintf(newFuncFromSliceTmpl, name, lowerFieldName, fieldType, name, name, lowerFieldName, fieldType, lowerFieldName, lowerFieldName, lowerFieldName)
 
 	appendFuncTmpl := `func (p *%s) Append(value %s) {
 	if p == nil {
@@ -68,7 +88,20 @@ func genWrapArr(name, fieldName, fieldType, arrEltType string) string {
 }
 
 `
-	appendFuncStr := fmt.Sprintf(appendFuncTmpl, name, arrEltType, fieldName, fieldName)
+	appendFuncStr := fmt.Sprintf(appendFuncTmpl, name, arrEltTypeStr, lowerFieldName, lowerFieldName)
+
+	indexFuncTmpl := `func (p *%s) Index(i int) %s {
+	if p == nil {
+		return nil
+	}
+	if i < 0 || i >= len(p.%s) {
+		return nil
+	}
+	return p.%s[i]
+}
+
+`
+	indexFuncStr := fmt.Sprintf(indexFuncTmpl, name, arrEltTypeStr, lowerFieldName, lowerFieldName)
 
 	foreachFuncTmpl := `func (p *%s) Foreach(f func(%s)) {
 	if p == nil {
@@ -80,30 +113,61 @@ func genWrapArr(name, fieldName, fieldType, arrEltType string) string {
 }
 
 `
-	foreachFuncStr := fmt.Sprintf(foreachFuncTmpl, name, arrEltType, fieldName)
+	foreachFuncStr := fmt.Sprintf(foreachFuncTmpl, name, arrEltTypeStr, lowerFieldName)
 
-	return structStr + newFuncStr + newFuncFromSliceStr + appendFuncStr + foreachFuncStr
+	arrImportTypeStr := fmt.Sprintf("[]*%s.%s", inPackageName, arrEltStarTypeStr)
+	arrFromOriginTmpl := `func (p *%s) fromOrigin(o %s)  {
+	for _,v := range o {
+		val := New%s()
+		val.fromOrigin(v)
+		p.%s = append(p.%s, val)
+	}
 }
 
-func genWrapMap(name, fieldName, fieldType, mapKeyType, mapValueType string) string {
+`
+	arrFromOrigin := fmt.Sprintf(arrFromOriginTmpl, name, arrImportTypeStr, arrEltStarTypeStr, lowerFieldName, lowerFieldName)
+
+	arrToOriginTmpl := `func (p *%s) toOrigin() %s {
+	if p == nil {
+		return nil
+	}
+	o := make(%s, 0)
+	for _,v := range p.%s {
+		o = append(o, v.toOrigin())
+	}
+	return o
+}
+
+`
+	arrToOrigin := fmt.Sprintf(arrToOriginTmpl, name, arrImportTypeStr, arrImportTypeStr, lowerFieldName)
+
+	return structStr + newFuncStr + newFuncFromSliceStr + appendFuncStr + indexFuncStr + foreachFuncStr + arrFromOrigin + arrToOrigin
+}
+
+func genWrapMap(name, fieldName, fieldType string, fset *token.FileSet, mapKeyType ast.Expr, mapValueType ast.Expr, inPackageName string) string {
+	lowerFieldName := firstLower(fieldName)
+	mapKeyTypeStr := getTypeString(fset, mapKeyType)
+	mapValueTypeStr := getTypeString(fset, mapValueType)
+	mapValueStarTypeStr := getStarTypeString(fset, mapValueType)
+
 	structTmpl := `type %s struct {
 	Base
 	%s %s
 }
 
 `
-	structStr := fmt.Sprintf(structTmpl, name, fieldName, fieldType)
+	structStr := fmt.Sprintf(structTmpl, name, lowerFieldName, fieldType)
 
 	newFuncTmpl := `func New%s() *%s {
 	p := &%s{}
-	p.%s = make(%s, 0)
+	p.%s = make(%s)
 	p.self = p
 	p.root = p
 	return p
 }
 
 `
-	newFuncStr := fmt.Sprintf(newFuncTmpl, name, name, name, fieldName, fieldType)
+	newFuncStr := fmt.Sprintf(newFuncTmpl, name, name, name, lowerFieldName, fieldType)
 
 	newFuncFromMapTmpl := `func New%sFromMap(%s %s) *%s {
 	p := &%s{}
@@ -117,7 +181,7 @@ func genWrapMap(name, fieldName, fieldType, mapKeyType, mapValueType string) str
 }
 
 `
-	newFuncFromMapStr := fmt.Sprintf(newFuncFromMapTmpl, name, fieldName, fieldType, name, name, fieldName, fieldType, fieldName, fieldName)
+	newFuncFromMapStr := fmt.Sprintf(newFuncFromMapTmpl, name, lowerFieldName, fieldType, name, name, lowerFieldName, fieldType, lowerFieldName, lowerFieldName)
 
 	getFuncTmpl := `func (p *%s) Get(key %s) %s {
 	if p == nil {
@@ -127,7 +191,7 @@ func genWrapMap(name, fieldName, fieldType, mapKeyType, mapValueType string) str
 }
 
 `
-	getFuncStr := fmt.Sprintf(getFuncTmpl, name, mapKeyType, mapValueType, fieldName)
+	getFuncStr := fmt.Sprintf(getFuncTmpl, name, mapKeyTypeStr, mapValueTypeStr, lowerFieldName)
 
 	setFuncTmpl := `func (p *%s) Set(key %s, value %s) {
 	if p == nil {
@@ -139,7 +203,7 @@ func genWrapMap(name, fieldName, fieldType, mapKeyType, mapValueType string) str
 }
 
 `
-	setFuncStr := fmt.Sprintf(setFuncTmpl, name, mapKeyType, mapValueType, fieldName)
+	setFuncStr := fmt.Sprintf(setFuncTmpl, name, mapKeyTypeStr, mapValueTypeStr, lowerFieldName)
 
 	deleteFuncTmpl := `func (p *%s) Delete(key %s) {
 	if p == nil {
@@ -150,7 +214,7 @@ func genWrapMap(name, fieldName, fieldType, mapKeyType, mapValueType string) str
 }
 
 `
-	deleteFuncStr := fmt.Sprintf(deleteFuncTmpl, name, mapKeyType, fieldName)
+	deleteFuncStr := fmt.Sprintf(deleteFuncTmpl, name, mapKeyTypeStr, lowerFieldName)
 
 	foreachFuncTmpl := `func (p *%s) Foreach(f func(%s, %s)) {
 	if p == nil {
@@ -162,12 +226,37 @@ func genWrapMap(name, fieldName, fieldType, mapKeyType, mapValueType string) str
 }
 
 `
-	foreachFuncStr := fmt.Sprintf(foreachFuncTmpl, name, mapKeyType, mapValueType, fieldName)
+	foreachFuncStr := fmt.Sprintf(foreachFuncTmpl, name, mapKeyTypeStr, mapValueTypeStr, lowerFieldName)
 
-	return structStr + newFuncStr + newFuncFromMapStr + getFuncStr + setFuncStr + deleteFuncStr + foreachFuncStr
+	mapImportTypeStr := fmt.Sprintf("map[%s]*%s.%s", mapKeyTypeStr, inPackageName, mapValueStarTypeStr)
+	mapFromOriginTmpl := `func (p *%s) fromOrigin(o %s)  {
+	for k,v := range o {
+		p.%s[k] = New%s()
+		p.%s[k].fromOrigin(v)
+	}
 }
 
-func genStruct(fset *token.FileSet, name string, list []*ast.Field) string {
+`
+	mapFromOrigin := fmt.Sprintf(mapFromOriginTmpl, name, mapImportTypeStr, lowerFieldName, mapValueStarTypeStr, lowerFieldName)
+
+	mapToOriginTmpl := `func (p *%s) toOrigin() %s {
+	if p == nil {
+		return nil
+	}
+	o := make(%s)
+	for k,v := range p.%s {
+		o[k] = v.toOrigin()
+	}
+	return o
+}
+
+`
+	mapToOrigin := fmt.Sprintf(mapToOriginTmpl, name, mapImportTypeStr, mapImportTypeStr, lowerFieldName)
+
+	return structStr + newFuncStr + newFuncFromMapStr + getFuncStr + setFuncStr + deleteFuncStr + foreachFuncStr + mapFromOrigin + mapToOrigin
+}
+
+func genStruct(fset *token.FileSet, name string, list []*ast.Field, inPackageName string) string {
 	structTmpl := `type %s struct {
 	Base%s
 }
@@ -180,27 +269,27 @@ func genStruct(fset *token.FileSet, name string, list []*ast.Field) string {
 		fieldName := field.Names[0].Name
 		fieldType := getTypeString(fset, field.Type)
 
-		ele := fieldName + " " + fieldType
+		upperFieldName := firstUpper(fieldName)
+		lowerFieldName := firstLower(fieldName)
+
+		ele := lowerFieldName + " " + fieldType
 
 		// wrap array
 		arrType, isArr := field.Type.(*ast.ArrayType)
 		if isArr {
-			wrapStructName := "Arr" + name + strings.Title(fieldName)
-			ele = "_wrap_" + fieldName + " *" + wrapStructName
+			wrapStructName := "Arr" + name + upperFieldName
+			ele = "_wrap_" + lowerFieldName + " *" + wrapStructName
 
-			arrEltType := getTypeString(fset, arrType.Elt)
-			wraps += genWrapArr(wrapStructName, fieldName, fieldType, arrEltType)
+			wraps += genWrapArr(wrapStructName, lowerFieldName, fieldType, fset, arrType.Elt, inPackageName)
 		}
 
 		// wrap map
 		mapType, isMap := field.Type.(*ast.MapType)
 		if isMap {
-			wrapStructName := "Map" + name + strings.Title(fieldName)
-			ele = "_wrap_" + fieldName + " *" + wrapStructName
+			wrapStructName := "Map" + name + upperFieldName
+			ele = "_wrap_" + lowerFieldName + " *" + wrapStructName
 
-			mapKeyType := getTypeString(fset, mapType.Key)
-			mapValueType := getTypeString(fset, mapType.Value)
-			wraps += genWrapMap(wrapStructName, fieldName, fieldType, mapKeyType, mapValueType)
+			wraps += genWrapMap(wrapStructName, lowerFieldName, fieldType, fset, mapType.Key, mapType.Value, inPackageName)
 		}
 
 		eles += "\n\t" + ele
@@ -264,35 +353,126 @@ func genGetSetFunc(fset *token.FileSet, name string, list []*ast.Field) string {
 	for _, field := range list {
 		fieldName := field.Names[0].Name
 		fieldType := getTypeString(fset, field.Type)
+		upperFieldName := firstUpper(fieldName)
+		lowerFieldName := firstLower(fieldName)
 
 		if fieldIsStarStruct(field) {
-			funcListStr += fmt.Sprintf(setStarStructTmpl, name, strings.Title(fieldName), fieldType, fieldName)
+			funcListStr += fmt.Sprintf(setStarStructTmpl, name, upperFieldName, fieldType, lowerFieldName)
 		} else {
 			if fieldIsArrayStarStruct(field) {
-				wrapType := "*Arr" + name + strings.Title(fieldName)
-				funcListStr += fmt.Sprintf(setWrapTmpl, name, strings.Title(fieldName), wrapType, fieldName, fieldName)
+				wrapType := "*Arr" + name + upperFieldName
+				funcListStr += fmt.Sprintf(setWrapTmpl, name, upperFieldName, wrapType, lowerFieldName, lowerFieldName)
 			} else if fieldIsMapStarStruct(field) {
-				wrapType := "*Map" + name + strings.Title(fieldName)
-				funcListStr += fmt.Sprintf(setWrapTmpl, name, strings.Title(fieldName), wrapType, fieldName, fieldName)
+				wrapType := "*Map" + name + upperFieldName
+				funcListStr += fmt.Sprintf(setWrapTmpl, name, upperFieldName, wrapType, lowerFieldName, lowerFieldName)
 			} else {
-				funcListStr += fmt.Sprintf(setTmpl, name, strings.Title(fieldName), fieldType, fieldName)
+				funcListStr += fmt.Sprintf(setTmpl, name, upperFieldName, fieldType, lowerFieldName)
 			}
 		}
 
 		if fieldIsArrayStarStruct(field) {
-			wrapType := "*Arr" + name + strings.Title(fieldName)
-			funcListStr += fmt.Sprintf(getWrapTmpl, name, strings.Title(fieldName), wrapType, fieldName)
+			wrapType := "*Arr" + name + upperFieldName
+			funcListStr += fmt.Sprintf(getWrapTmpl, name, upperFieldName, wrapType, lowerFieldName)
 		} else if fieldIsMapStarStruct(field) {
-			wrapType := "*Map" + name + strings.Title(fieldName)
-			funcListStr += fmt.Sprintf(getWrapTmpl, name, strings.Title(fieldName), wrapType, fieldName)
+			wrapType := "*Map" + name + upperFieldName
+			funcListStr += fmt.Sprintf(getWrapTmpl, name, upperFieldName, wrapType, lowerFieldName)
 		} else {
-			funcListStr += fmt.Sprintf(getTmpl, name, strings.Title(fieldName), fieldType, getZeroValue(fieldType), fieldName)
+			funcListStr += fmt.Sprintf(getTmpl, name, upperFieldName, fieldType, getZeroValue(fieldType), lowerFieldName)
 		}
 	}
 	return funcListStr
 }
 
-func genDirtyOut(tmpl, out, outPackageName string) {
+func genJSONFunc(fset *token.FileSet, name string, list []*ast.Field, importPackage string) string {
+	fromOriginTmpl := `func (p *%s) fromOrigin(o *%s.%s) {%s
+}
+
+`
+	eles := ""
+	for _, field := range list {
+		fieldName := field.Names[0].Name
+		fieldStarType := getStarTypeString(fset, field.Type)
+		upperFieldName := firstUpper(fieldName)
+		lowerFieldName := firstLower(fieldName)
+
+		ele := fmt.Sprintf("p.%s = o.%s", lowerFieldName, upperFieldName)
+
+		if fieldIsStarStruct(field) {
+			ele = fmt.Sprintf("p.%s = New%s()\np.%s.fromOrigin(o.%s)", lowerFieldName, fieldStarType, lowerFieldName, upperFieldName)
+		}
+
+		_, isArr := field.Type.(*ast.ArrayType)
+		_, isMap := field.Type.(*ast.MapType)
+		var wrapStructName string
+		if isArr {
+			wrapStructName = "Arr" + name + upperFieldName
+		}
+		if isMap {
+			wrapStructName = "Map" + name + upperFieldName
+		}
+		if isArr || isMap {
+			ele = fmt.Sprintf("p._wrap_%s = New%s()\np._wrap_%s.fromOrigin(o.%s)", lowerFieldName, wrapStructName, lowerFieldName, upperFieldName)
+		}
+
+		eles += "\n\t" + ele
+	}
+	fromOrigin := fmt.Sprintf(fromOriginTmpl, name, importPackage, name, eles)
+
+	toOriginTmpl := `func (p *%s) toOrigin() *%s.%s {
+	if p == nil {
+		return nil
+	}
+	o := &%s.%s{} %s
+	return o
+}
+
+`
+	eles = ""
+	for _, field := range list {
+		fieldName := field.Names[0].Name
+		upperFieldName := firstUpper(fieldName)
+		lowerFieldName := firstLower(fieldName)
+
+		ele := fmt.Sprintf("o.%s = p.%s", upperFieldName, lowerFieldName)
+
+		if fieldIsStarStruct(field) {
+			ele = fmt.Sprintf("o.%s = p.%s.toOrigin()", upperFieldName, lowerFieldName)
+		}
+
+		_, isArr := field.Type.(*ast.ArrayType)
+		_, isMap := field.Type.(*ast.MapType)
+		if isArr || isMap {
+			ele = fmt.Sprintf("o.%s = p._wrap_%s.toOrigin()", upperFieldName, lowerFieldName)
+		}
+
+		eles += "\n\t" + ele
+	}
+	toOrigin := fmt.Sprintf(toOriginTmpl, name, importPackage, name, importPackage, name, eles)
+
+	unmarshalJSONTmpl := `func (p *%s) UnmarshalJSON(data []byte) error {
+	origin := &%s.%s{}
+	if err := json.Unmarshal(data, origin); err != nil {
+        return err
+    }
+	p.fromOrigin(origin)
+    return nil
+}
+
+`
+	unmarshalJSON := fmt.Sprintf(unmarshalJSONTmpl, name, importPackage, name)
+
+	marshalJSONTmpl := `func (p *%s) MarshalJSON() ([]byte, error) {
+	origin := p.toOrigin()
+    return json.Marshal(origin)
+}
+
+`
+	marshalJSON := fmt.Sprintf(marshalJSONTmpl, name)
+
+	return fromOrigin + toOrigin + unmarshalJSON + marshalJSON
+}
+
+func genDirtyOut(tmpl, out, outPackageName, importPackage string) {
 	src, err := ioutil.ReadFile(tmpl)
 	if err != nil {
 		panic(err)
@@ -307,9 +487,15 @@ func genDirtyOut(tmpl, out, outPackageName string) {
 	headTmpl := `// Code generated by dirty-go; DO NOT EDIT.
 package %s
 
-`
-	outStr := fmt.Sprintf(headTmpl, outPackageName)
+import (
+	"encoding/json"
+	"%s"
+)
 
+`
+	outStr := fmt.Sprintf(headTmpl, outPackageName, importPackage)
+
+	inPackageName := filepath.Base(importPackage)
 	for _, decl := range f.Decls {
 		genDecl, ok := decl.(*ast.GenDecl)
 		if !ok || genDecl.Tok != token.TYPE {
@@ -327,17 +513,19 @@ package %s
 				continue
 			}
 
+			name := typeSpec.Name.Name
+			list := structType.Fields.List
+
 			// Generate struct
-			structStr := genStruct(fset, typeSpec.Name.Name, structType.Fields.List)
-			outStr += structStr
+			outStr += genStruct(fset, name, list, inPackageName)
 
 			// Generate NewFunc
-			newFuncStr := genNewFunc(typeSpec.Name.Name)
-			outStr += newFuncStr
+			outStr += genNewFunc(name)
 
 			// Generate Get and Set methods for fields
-			getSetFuncStr := genGetSetFunc(fset, typeSpec.Name.Name, structType.Fields.List)
-			outStr += getSetFuncStr
+			outStr += genGetSetFunc(fset, name, list)
+
+			outStr += genJSONFunc(fset, name, list, inPackageName)
 		}
 	}
 	writeCodeToFile(out, outStr)
@@ -348,6 +536,7 @@ func writeCodeToFile(out, code string) {
 	fsetOut := token.NewFileSet()
 	fOut, err := parser.ParseFile(fsetOut, "", code, parser.ParseComments)
 	if err != nil {
+		fmt.Println(code)
 		panic(err)
 	}
 
@@ -388,6 +577,15 @@ func getZeroValue(fieldType string) string {
 
 func fieldIsStarStruct(field *ast.Field) bool {
 	return isStarStruct(field.Type)
+}
+
+func getStarTypeString(fset *token.FileSet, expr ast.Expr) string {
+	starExpr, ok := expr.(*ast.StarExpr)
+	if ok {
+		return getTypeString(fset, starExpr.X)
+	}
+
+	return getTypeString(fset, expr)
 }
 
 func isStarStruct(expr ast.Expr) bool {
@@ -488,8 +686,10 @@ func getFileNames(dir string) []string {
 func main() {
 	var in string
 	var out string
+	var importPackage string
 	flag.StringVar(&in, "in", "", "The input directory.")
 	flag.StringVar(&out, "out", "", "The output directory.")
+	flag.StringVar(&importPackage, "import", "", "The import package.")
 	flag.Parse()
 
 	if in == "" || out == "" {
@@ -519,7 +719,7 @@ func main() {
 	for _, name := range fileNames {
 		infile := filepath.Join(in, name)
 		outfile := filepath.Join(out, name)
-		genDirtyOut(infile, outfile, outPackageName)
+		genDirtyOut(infile, outfile, outPackageName, importPackage)
 	}
 
 	outfile := filepath.Join(out, "base.go")

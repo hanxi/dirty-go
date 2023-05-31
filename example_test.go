@@ -136,7 +136,7 @@ func TestNotifyDirty(t *testing.T) {
 	baseInfo := dirty_out.NewBaseInfo()
 	baseInfo.SetLv(10)
 	baseInfo.SetExp(100)
-	user.SetBaseInfo(baseInfo)
+	user.SetInfo(baseInfo)
 	CheckCount(t, 1)
 
 	ResetCount()
@@ -157,6 +157,45 @@ func TestUserJsonMarshal(t *testing.T) {
 	if string(b) != `{"lv":10,"exp":100}` {
 		t.Error("json marshal failed.")
 	}
+
+	user := dirty_out.NewUser()
+	user.SetInfo(baseInfo)
+	user.SetName("hanxi")
+	user.SetAge(18)
+
+	arrFriends := dirty_out.NewArrUserFriends()
+	f1 := dirty_out.NewFriend()
+	f1.SetUid(1)
+	f1.SetName("hanxi1")
+	f2 := dirty_out.NewFriend()
+	f2.SetUid(2)
+	f2.SetName("hanxi2")
+	arrFriends.Append(f1)
+	arrFriends.Append(f2)
+	user.SetFriends(arrFriends)
+
+	mapResource := dirty_out.NewMapUserResources()
+	res1 := dirty_out.NewResource()
+	res1.SetId(1)
+	res1.SetSize(1)
+	res1.SetValue(1)
+	res2 := dirty_out.NewResource()
+	res2.SetId(2)
+	res2.SetSize(2)
+	res2.SetValue(2)
+	mapResource.Set(1, res1)
+	mapResource.Set(2, res2)
+	user.SetResources(mapResource)
+
+	userb, err := json.Marshal(user)
+	if err != nil {
+		t.Error("error: ", err)
+	}
+	t.Log(string(userb))
+
+	if string(userb) != `{"name":"hanxi","age":18,"baseinfo":{"lv":10,"exp":100},"Resources":{"1":{"id":1,"value":1,"size":1},"2":{"id":2,"value":2,"size":2}},"Friends":[{"uid":1,"name":"hanxi1"},{"uid":2,"name":"hanxi2"}]}` {
+		t.Error("json marshal failed.")
+	}
 }
 
 func TestUserJsonUnmarshal(t *testing.T) {
@@ -169,6 +208,37 @@ func TestUserJsonUnmarshal(t *testing.T) {
 	t.Logf("lv:%d, exp:%d\n", baseInfo.GetLv(), baseInfo.GetExp())
 
 	if baseInfo.GetLv() != 20 || baseInfo.GetExp() != 300 {
+		t.Error("json unmarshal failed.")
+	}
+
+	user := dirty_out.NewUser()
+	userJsonStr := `{"name":"hanxi","age":18,"baseinfo":{"lv":10,"exp":100},"Resources":{"1":{"id":1,"value":1,"size":1},"2":{"id":2,"value":2,"size":2}},"Friends":[{"uid":1,"name":"hanxi1"},{"uid":2,"name":"hanxi2"}]}`
+	err = json.Unmarshal([]byte(userJsonStr), &user)
+	if err != nil {
+		t.Error("error:", err)
+	}
+	t.Logf("user:%+v\n", user)
+
+	if user.GetName() != "hanxi" {
+		t.Error("json unmarshal failed.")
+	}
+	if user.GetAge() != 18 {
+		t.Error("json unmarshal failed.")
+	}
+	if user.GetInfo().GetLv() != 10 {
+		t.Error("json unmarshal failed.")
+	}
+	if user.GetInfo().GetExp() != 100 {
+		t.Error("json unmarshal failed.")
+	}
+	if user.GetResources().Get(1).GetId() != 1 {
+		t.Error("json unmarshal failed.")
+	}
+	t.Logf("uid: %v", user.GetFriends().Index(1).GetUid())
+	if user.GetFriends().Index(0).GetUid() != 1 {
+		t.Error("json unmarshal failed.")
+	}
+	if user.GetFriends().Index(1).GetUid() != 2 {
 		t.Error("json unmarshal failed.")
 	}
 }

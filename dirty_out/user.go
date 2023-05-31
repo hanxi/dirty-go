@@ -10,22 +10,6 @@ type BaseInfo struct {
 	Base
 	lv  uint32
 	exp uint32
-	_origin dirty_tmpl.BaseInfo
-}
-
-func (p *BaseInfo) UnmarshalJSON(data []byte) error {
-	if err := json.Unmarshal(data, &p._origin); err != nil {
-        return err
-    }
-	p.lv = p._origin.Lv
-	p.exp = p._origin.Exp
-    return nil
-}
-
-func (p *BaseInfo) MarshalJSON() ([]byte, error) {
-	p._origin.Lv = p.lv
-	p._origin.Exp = p.exp
-    return json.Marshal(&p._origin)
 }
 
 func NewBaseInfo() *BaseInfo {
@@ -63,6 +47,35 @@ func (p *BaseInfo) GetExp() uint32 {
 		return 0
 	}
 	return p.exp
+}
+
+func (p *BaseInfo) fromOrigin(o *dirty_tmpl.BaseInfo) {
+	p.lv = o.Lv
+	p.exp = o.Exp
+}
+
+func (p *BaseInfo) toOrigin() *dirty_tmpl.BaseInfo {
+	if p == nil {
+		return nil
+	}
+	o := &dirty_tmpl.BaseInfo{}
+	o.Lv = p.lv
+	o.Exp = p.exp
+	return o
+}
+
+func (p *BaseInfo) UnmarshalJSON(data []byte) error {
+	origin := &dirty_tmpl.BaseInfo{}
+	if err := json.Unmarshal(data, origin); err != nil {
+		return err
+	}
+	p.fromOrigin(origin)
+	return nil
+}
+
+func (p *BaseInfo) MarshalJSON() ([]byte, error) {
+	origin := p.toOrigin()
+	return json.Marshal(origin)
 }
 
 type Resource struct {
@@ -124,6 +137,37 @@ func (p *Resource) GetSize() uint32 {
 	return p.size
 }
 
+func (p *Resource) fromOrigin(o *dirty_tmpl.Resource) {
+	p.id = o.Id
+	p.value = o.Value
+	p.size = o.Size
+}
+
+func (p *Resource) toOrigin() *dirty_tmpl.Resource {
+	if p == nil {
+		return nil
+	}
+	o := &dirty_tmpl.Resource{}
+	o.Id = p.id
+	o.Value = p.value
+	o.Size = p.size
+	return o
+}
+
+func (p *Resource) UnmarshalJSON(data []byte) error {
+	origin := &dirty_tmpl.Resource{}
+	if err := json.Unmarshal(data, origin); err != nil {
+		return err
+	}
+	p.fromOrigin(origin)
+	return nil
+}
+
+func (p *Resource) MarshalJSON() ([]byte, error) {
+	origin := p.toOrigin()
+	return json.Marshal(origin)
+}
+
 type Friend struct {
 	Base
 	uid  uint32
@@ -167,11 +211,40 @@ func (p *Friend) GetName() string {
 	return p.name
 }
 
+func (p *Friend) fromOrigin(o *dirty_tmpl.Friend) {
+	p.uid = o.Uid
+	p.name = o.Name
+}
+
+func (p *Friend) toOrigin() *dirty_tmpl.Friend {
+	if p == nil {
+		return nil
+	}
+	o := &dirty_tmpl.Friend{}
+	o.Uid = p.uid
+	o.Name = p.name
+	return o
+}
+
+func (p *Friend) UnmarshalJSON(data []byte) error {
+	origin := &dirty_tmpl.Friend{}
+	if err := json.Unmarshal(data, origin); err != nil {
+		return err
+	}
+	p.fromOrigin(origin)
+	return nil
+}
+
+func (p *Friend) MarshalJSON() ([]byte, error) {
+	origin := p.toOrigin()
+	return json.Marshal(origin)
+}
+
 type User struct {
 	Base
 	name            string
 	age             int
-	baseInfo        *BaseInfo
+	info            *BaseInfo
 	_wrap_resources *MapUserResources
 	_wrap_friends   *ArrUserFriends
 }
@@ -183,7 +256,7 @@ type MapUserResources struct {
 
 func NewMapUserResources() *MapUserResources {
 	p := &MapUserResources{}
-	p.resources = make(map[uint32]*Resource, 0)
+	p.resources = make(map[uint32]*Resource)
 	p.self = p
 	p.root = p
 	return p
@@ -233,6 +306,24 @@ func (p *MapUserResources) Foreach(f func(uint32, *Resource)) {
 	}
 }
 
+func (p *MapUserResources) fromOrigin(o map[uint32]*dirty_tmpl.Resource) {
+	for k, v := range o {
+		p.resources[k] = NewResource()
+		p.resources[k].fromOrigin(v)
+	}
+}
+
+func (p *MapUserResources) toOrigin() map[uint32]*dirty_tmpl.Resource {
+	if p == nil {
+		return nil
+	}
+	o := make(map[uint32]*dirty_tmpl.Resource)
+	for k, v := range p.resources {
+		o[k] = v.toOrigin()
+	}
+	return o
+}
+
 type ArrUserFriends struct {
 	Base
 	friends []*Friend
@@ -264,6 +355,16 @@ func (p *ArrUserFriends) Append(value *Friend) {
 	p.NotifyDirty()
 }
 
+func (p *ArrUserFriends) Index(i int) *Friend {
+	if p == nil {
+		return nil
+	}
+	if i < 0 || i >= len(p.friends) {
+		return nil
+	}
+	return p.friends[i]
+}
+
 func (p *ArrUserFriends) Foreach(f func(*Friend)) {
 	if p == nil {
 		return
@@ -271,6 +372,25 @@ func (p *ArrUserFriends) Foreach(f func(*Friend)) {
 	for _, v := range p.friends {
 		f(v)
 	}
+}
+
+func (p *ArrUserFriends) fromOrigin(o []*dirty_tmpl.Friend) {
+	for _, v := range o {
+		val := NewFriend()
+		val.fromOrigin(v)
+		p.friends = append(p.friends, val)
+	}
+}
+
+func (p *ArrUserFriends) toOrigin() []*dirty_tmpl.Friend {
+	if p == nil {
+		return nil
+	}
+	o := make([]*dirty_tmpl.Friend, 0)
+	for _, v := range p.friends {
+		o = append(o, v.toOrigin())
+	}
+	return o
 }
 
 func NewUser() *User {
@@ -310,20 +430,20 @@ func (p *User) GetAge() int {
 	return p.age
 }
 
-func (p *User) SetBaseInfo(value *BaseInfo) {
+func (p *User) SetInfo(value *BaseInfo) {
 	if p == nil {
 		return
 	}
-	p.baseInfo = value
+	p.info = value
 	value.root = p.root
 	p.NotifyDirty()
 }
 
-func (p *User) GetBaseInfo() *BaseInfo {
+func (p *User) GetInfo() *BaseInfo {
 	if p == nil {
 		return nil
 	}
-	return p.baseInfo
+	return p.info
 }
 
 func (p *User) SetResources(value *MapUserResources) {
@@ -362,4 +482,42 @@ func (p *User) GetFriends() *ArrUserFriends {
 		return nil
 	}
 	return p._wrap_friends
+}
+
+func (p *User) fromOrigin(o *dirty_tmpl.User) {
+	p.name = o.Name
+	p.age = o.Age
+	p.info = NewBaseInfo()
+	p.info.fromOrigin(o.Info)
+	p._wrap_resources = NewMapUserResources()
+	p._wrap_resources.fromOrigin(o.Resources)
+	p._wrap_friends = NewArrUserFriends()
+	p._wrap_friends.fromOrigin(o.Friends)
+}
+
+func (p *User) toOrigin() *dirty_tmpl.User {
+	if p == nil {
+		return nil
+	}
+	o := &dirty_tmpl.User{}
+	o.Name = p.name
+	o.Age = p.age
+	o.Info = p.info.toOrigin()
+	o.Resources = p._wrap_resources.toOrigin()
+	o.Friends = p._wrap_friends.toOrigin()
+	return o
+}
+
+func (p *User) UnmarshalJSON(data []byte) error {
+	origin := &dirty_tmpl.User{}
+	if err := json.Unmarshal(data, origin); err != nil {
+		return err
+	}
+	p.fromOrigin(origin)
+	return nil
+}
+
+func (p *User) MarshalJSON() ([]byte, error) {
+	origin := p.toOrigin()
+	return json.Marshal(origin)
 }

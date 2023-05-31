@@ -1,13 +1,13 @@
 package dirty_tmpl
 
 type Person struct {
-	name    string
-	age     int
-	friends []*Person
-	peoples map[string]*Person
+	Name    string
+	Age     int
+	Friends []*Person
+	Peoples map[string]*Person
 }
 
 type Man struct {
-	baseInfo *Person
-	score    uint32
+	BaseInfo *Person
+	Score    uint32
 }
